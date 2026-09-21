@@ -156,12 +156,20 @@ def main() -> int:
         out = bdc_nonaccrual("ARCC")
         src = out.get("source") or {}
         method = out.get("extraction_method")
+        form = str(src.get("form") or "")
+        named = [
+            row.get("company_name")
+            for row in (out.get("investments") or [])
+            if row.get("company_name")
+        ]
         check(
             "ARCC nonaccrual",
             bool(src.get("index_url") and src.get("accession_number"))
+            and form == "10-K"
             and method in {"footnote", "custom_concept", "aggregate_concept", "none"},
-            f"method={method} rate={out.get('nonaccrual_rate')} n={out.get('num_nonaccrual')}",
+            f"form={form} method={method} rate={out.get('nonaccrual_rate')} n={out.get('num_nonaccrual')} names={len(named)}",
         )
+        check("ARCC original 10-K", form == "10-K" and form != "10-K/A", f"form={form}")
     except Exception as exc:
         check("ARCC nonaccrual", False, f"{type(exc).__name__}: {exc}")
         traceback.print_exc()

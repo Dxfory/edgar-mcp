@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import io
+import json
+import logging
 import os
+import re
 import sys
 import unittest
 
@@ -155,6 +159,95 @@ class BdcNonaccrualFootgunTests(unittest.TestCase):
     def test_prefer_original_form_skips_10k_amendment(self):
         picked = prefer_original_form([{"form": "10-K/A"}, {"form": "10-K"}], "10-K")
         self.assertEqual(picked["form"], "10-K")
+
+
+class PackageSurfaceTests(unittest.TestCase):
+    def _read(self, *parts: str) -> str:
+        with open(os.path.join(ROOT, *parts), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_versions_match(self):
+        pyproject = self._read("pyproject.toml")
+        init_text = self._read("edgar_mcp", "__init__.py")
+        with open(os.path.join(ROOT, "server.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        py_ver = re.search(r'^version = "([^"]+)"', pyproject, re.M)
+        init_ver = re.search(r'__version__ = "([^"]+)"', init_text)
+        self.assertIsNotNone(py_ver)
+        self.assertIsNotNone(init_ver)
+        version = py_ver.group(1)
+        self.assertEqual(init_ver.group(1), version)
+        self.assertEqual(manifest["version"], version)
+        self.assertEqual(manifest["packages"][0]["version"], version)
+        self.assertEqual(manifest["packages"][0]["identifier"], "edgar-filings-mcp")
+        self.assertIn("BDC", manifest["description"])
+
+    def test_mcp_pin_avoids_v2(self):
+        self.assertIn('"mcp>=1.9,<2"', self._read("pyproject.toml"))
+
+    def test_four_tools_only(self):
+        server = self._read("edgar_mcp", "server.py")
+        tools = re.findall(r"^def (get_[a-z0-9_]+)\(", server, re.M)
+        self.assertEqual(
+            tools,
+            [
+                "get_trading_symbols",
+                "get_segment_revenue",
+                "get_bdc_nonaccrual",
+                "get_form4",
+            ],
+        )
+        self.assertEqual(server.count("@mcp.tool()"), 4)
+
+    def test_examples_stay_placeholders(self):
+        paths = [
+            ("README.md",),
+            ("examples", "cursor.mcp.json"),
+            ("examples", "claude.mcp.json"),
+            (".env.example",),
+        ]
+        for parts in paths:
+            text = self._read(*parts)
+            self.assertNotIn("dxfory@", text, "/".join(parts))
+            self.assertIn("you@example.com", text)
+
+    def test_readme_does_not_claim_pypi(self):
+        text = self._read("README.md")
+        self.assertIn("git+https://github.com/Dxfory/edgar-mcp.git", text)
+        self.assertIn("not published yet", text.lower())
+        self.assertIn("mcp>=1.9,<2", text)
+
+    def test_identity_redaction(self):
+        self.addCleanup(os.environ.pop, "EDGAR_IDENTITY", None)
+        os.environ["EDGAR_IDENTITY"] = "Ada Lovelace ada@example.com"
+        record = logging.LogRecord(
+            name="edgar",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Identity of the Edgar REST client set to [%s]",
+            args=("Ada Lovelace ada@example.com",),
+            exc_info=None,
+        )
+        self.assertTrue(filings._RedactIdentityFilter().filter(record))
+        self.assertNotIn("ada@example.com", record.getMessage())
+        self.assertIn("<redacted>", record.getMessage())
+
+    def test_identity_redaction_on_child_logger_handler(self):
+        self.addCleanup(os.environ.pop, "EDGAR_IDENTITY", None)
+        os.environ["EDGAR_IDENTITY"] = "Ada Lovelace ada@example.com"
+        stream = io.StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        handler.addFilter(filings._RedactIdentityFilter())
+        log = logging.getLogger("edgar.settings.test")
+        log.handlers = [handler]
+        log.propagate = False
+        log.setLevel(logging.INFO)
+        log.info("Identity of the Edgar REST client set to [%s]", os.environ["EDGAR_IDENTITY"])
+        text = stream.getvalue()
+        self.assertNotIn("ada@example.com", text)
+        self.assertIn("<redacted>", text)
 
 
 if __name__ == "__main__":
