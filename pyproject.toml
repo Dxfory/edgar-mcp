@@ -1,12 +1,21 @@
 [project]
 name = "edgar-filings-mcp"
-version = "1.1.1"
-description = "MCP server for SEC 10-K/10-Q trading symbols, segment revenue, BDC non-accrual, and Form 4."
+version = "1.1.2"
+description = "MCP server for SEC 10-K/10-Q symbols, segment revenue, BDC non-accrual, and Form 4 with citations."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Zheng Xing", email = "dxfory@icloud.com" }]
 keywords = ["mcp", "sec", "edgar", "10-k", "form-4", "xbrl", "bdc", "private-credit"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+]
 dependencies = [
     "edgartools>=4.0",
     "mcp>=1.9,<2",
@@ -25,7 +34,7 @@ dev = ["pytest>=8.0"]
 edgar-filings-mcp = "edgar_mcp.server:main"
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

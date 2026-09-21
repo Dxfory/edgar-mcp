@@ -3,6 +3,7 @@
 <!-- mcp-name: io.github.Dxfory/edgar-mcp -->
 
 [![PyPI](https://img.shields.io/pypi/v/edgar-filings-mcp)](https://pypi.org/project/edgar-filings-mcp/)
+[![MCP](https://img.shields.io/badge/MCP-io.github.Dxfory%2Fedgar--mcp-555)](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Dxfory/edgar-mcp)
 
 Cursor / Claude tools that return **SEC filing numbers**, not web-search guesses.
 
@@ -14,31 +15,7 @@ Cursor / Claude tools that return **SEC filing numbers**, not web-search guesses
 
 ## Install
 
-Three lines:
-
-1. Install `uv` ([docs](https://docs.astral.sh/uv/getting-started/installation/)).
-2. Set `EDGAR_IDENTITY` to a name and a real email ([SEC FAQ](https://www.sec.gov/os/webmaster-faq#code-support)).
-3. Paste `examples/cursor.mcp.json` into the client config.
-
-```text
-EDGAR_IDENTITY=Your Name you@example.com
-```
-
-macOS / Linux:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Windows (PowerShell):
-
-```powershell
-irm https://astral.sh/uv/install.ps1 | iex
-```
-
-Then copy `examples/cursor.mcp.json` to `~/.cursor/mcp.json` (Windows: `%USERPROFILE%\.cursor\mcp.json`). Copy `examples/claude.mcp.json` into Claude Desktop’s MCP config.
-
-Pin `mcp>=1.9,<2`. MCP 2.x renamed FastMCP. The package already pins that range.
+If `uv` is already on PATH, paste this into `~/.cursor/mcp.json` (Windows: `%USERPROFILE%\.cursor\mcp.json`). Use a real name and email ([SEC FAQ](https://www.sec.gov/os/webmaster-faq#code-support)). Same snippet is in `examples/cursor.mcp.json` and `examples/claude.mcp.json`.
 
 ```json
 {
@@ -54,15 +31,29 @@ Pin `mcp>=1.9,<2`. MCP 2.x renamed FastMCP. The package already pins that range.
 }
 ```
 
-PyPI package `edgar-filings-mcp` is live. Registry name is `io.github.Dxfory/edgar-mcp`. Skip Smithery hosted.
+PyPI package `edgar-filings-mcp` is live. Registry name is `io.github.Dxfory/edgar-mcp`. Skip Smithery hosted. Pin `mcp>=1.9,<2` — MCP 2.x renamed FastMCP; the package already pins that range.
+
+The first `uvx` launch downloads edgartools (pandas / pyarrow). If the client looks stuck, run `uvx edgar-filings-mcp` once in a terminal so uv can cache the wheels, then restart the MCP server. After that, initialize is a couple of seconds.
+
+No `uv` yet:
+
+macOS / Linux:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://astral.sh/uv/install.ps1 | iex
+```
 
 From git instead of PyPI:
 
 ```bash
 uvx --from git+https://github.com/Dxfory/edgar-mcp.git edgar-filings-mcp
 ```
-
-The first `uvx` launch downloads edgartools (pandas / pyarrow). If the client looks stuck, run the same command once in a terminal so uv can cache the wheels, then restart the MCP server. After that, initialize is a couple of seconds.
 
 ### Clone (no uv)
 
@@ -101,7 +92,7 @@ python -m pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 | `get_bdc_nonaccrual` | BDC non-accrual rate, fair value, named investments, and extraction method |
 | `get_form4` | Newest Form 4 summaries, transaction lines, `open_market`, and `code_counts` |
 
-`form` on the first three tools is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` only accepts SEC BDCs (814- filers) such as `ARCC`. There is no fifth tool.
+`form` on `get_trading_symbols`, `get_segment_revenue`, and `get_bdc_nonaccrual` is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` only accepts SEC BDCs (814- filers) such as `ARCC`. There is no fifth tool.
 
 ## Hot-theme footguns this server will / will not answer
 
