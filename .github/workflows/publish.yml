@@ -45,19 +45,37 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    outputs:
+      skipped: ${{ steps.present.outputs.skipped }}
     steps:
       - uses: actions/checkout@v4
+      - name: Skip upload if this version is already on PyPI
+        id: present
+        run: |
+          ver=$(python3 -c "import re; print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml', encoding='utf-8').read(), re.M).group(1))")
+          code=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/edgar-filings-mcp/${ver}/json")
+          if [ "$code" = "200" ]; then
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            echo "edgar-filings-mcp ${ver} already on PyPI; skip upload"
+          else
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-python@v5
+        if: steps.present.outputs.skipped != 'true'
         with:
           python-version: "3.11"
       - run: python -m pip install -q build
+        if: steps.present.outputs.skipped != 'true'
       - run: python -m build
+        if: steps.present.outputs.skipped != 'true'
       - uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.present.outputs.skipped != 'true'
         with:
           skip-existing: true
 
   registry:
-    needs: pypi
+    needs: [check, pypi]
+    if: success()
     runs-on: ubuntu-latest
     permissions:
       id-token: write
