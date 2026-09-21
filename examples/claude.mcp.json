@@ -2,11 +2,7 @@
   "mcpServers": {
     "edgar-filings": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/Dxfory/edgar-mcp.git",
-        "edgar-filings-mcp"
-      ],
+      "args": ["edgar-filings-mcp"],
       "env": {
         "EDGAR_IDENTITY": "Your Name you@example.com"
       }

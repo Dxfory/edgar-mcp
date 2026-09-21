@@ -43,11 +43,7 @@ Pin `mcp>=1.9,<2`. MCP 2.x renamed FastMCP. The package already pins that range.
   "mcpServers": {
     "edgar-filings": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/Dxfory/edgar-mcp.git",
-        "edgar-filings-mcp"
-      ],
+      "args": ["edgar-filings-mcp"],
       "env": {
         "EDGAR_IDENTITY": "Your Name you@example.com"
       }
@@ -56,7 +52,13 @@ Pin `mcp>=1.9,<2`. MCP 2.x renamed FastMCP. The package already pins that range.
 }
 ```
 
-That GitHub URL is **v1.1** on `main` (four tools, including `get_bdc_nonaccrual`). The PyPI name `edgar-filings-mcp` is declared in `server.json` but **not published yet**, so `uvx edgar-filings-mcp` without `--from git+...` will fail. The MCP registry listing waits until the PyPI version matches `server.json`. Skip Smithery hosted.
+PyPI package `edgar-filings-mcp` 1.1.0 is live. Registry name is `io.github.Dxfory/edgar-mcp`. Skip Smithery hosted.
+
+From git instead of PyPI:
+
+```bash
+uvx --from git+https://github.com/Dxfory/edgar-mcp.git edgar-filings-mcp
+```
 
 The first `uvx` launch downloads edgartools (pandas / pyarrow). If the client looks stuck, run the same command once in a terminal so uv can cache the wheels, then restart the MCP server. After that, initialize is a couple of seconds.
 
@@ -133,7 +135,7 @@ python scripts/pressure.py
 `smoke_stdio.py` only checks initialize + four tool names (no EDGAR). After `uvx` is on PATH:
 
 ```bash
-python scripts/smoke_stdio.py -- uvx --from git+https://github.com/Dxfory/edgar-mcp.git edgar-filings-mcp
+python scripts/smoke_stdio.py -- uvx edgar-filings-mcp
 ```
 
 `pressure.py` hits live EDGAR and needs `EDGAR_IDENTITY`.

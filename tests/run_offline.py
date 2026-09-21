@@ -212,12 +212,15 @@ class PackageSurfaceTests(unittest.TestCase):
             self.assertNotIn("dxfory@", text, "/".join(parts))
             self.assertIn("you@example.com", text)
 
-    def test_readme_does_not_claim_pypi(self):
+    def test_readme_installs_from_pypi(self):
         text = self._read("README.md")
-        self.assertIn("git+https://github.com/Dxfory/edgar-mcp.git", text)
-        self.assertIn("not published yet", text.lower())
+        self.assertIn('"edgar-filings-mcp"', text)
+        self.assertNotIn("not published yet", text.lower())
         self.assertIn("mcp>=1.9,<2", text)
         self.assertIn("mcp-name: io.github.Dxfory/edgar-mcp", text)
+        cursor = self._read("examples", "cursor.mcp.json")
+        self.assertIn('"edgar-filings-mcp"', cursor)
+        self.assertNotIn("git+", cursor)
 
     def test_identity_redaction(self):
         self.addCleanup(os.environ.pop, "EDGAR_IDENTITY", None)
