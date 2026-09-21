@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Dxfory/edgar-mcp",
-  "description": "SEC 10-K/10-Q trading symbols, dimensioned segment revenue, BDC non-accrual, and Form 4 lines with citations.",
+  "description": "SEC 10-K/10-Q symbols, segment revenue, BDC non-accrual, and Form 4 lines with citations.",
   "title": "EDGAR Filings",
   "repository": {
     "url": "https://github.com/Dxfory/edgar-mcp",

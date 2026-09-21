@@ -181,6 +181,7 @@ class PackageSurfaceTests(unittest.TestCase):
         self.assertEqual(manifest["packages"][0]["version"], version)
         self.assertEqual(manifest["packages"][0]["identifier"], "edgar-filings-mcp")
         self.assertIn("BDC", manifest["description"])
+        self.assertLessEqual(len(manifest["description"]), 100)
 
     def test_mcp_pin_avoids_v2(self):
         self.assertIn('"mcp>=1.9,<2"', self._read("pyproject.toml"))
@@ -216,6 +217,7 @@ class PackageSurfaceTests(unittest.TestCase):
         self.assertIn("git+https://github.com/Dxfory/edgar-mcp.git", text)
         self.assertIn("not published yet", text.lower())
         self.assertIn("mcp>=1.9,<2", text)
+        self.assertIn("mcp-name: io.github.Dxfory/edgar-mcp", text)
 
     def test_identity_redaction(self):
         self.addCleanup(os.environ.pop, "EDGAR_IDENTITY", None)
