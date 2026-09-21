@@ -3,17 +3,19 @@
   "name": "io.github.Dxfory/edgar-mcp",
   "description": "SEC 10-K/10-Q symbols, segment revenue, BDC non-accrual, and Form 4 lines with citations.",
   "title": "EDGAR Filings",
+  "websiteUrl": "https://github.com/Dxfory/edgar-mcp",
   "repository": {
     "url": "https://github.com/Dxfory/edgar-mcp",
-    "source": "github"
+    "source": "github",
+    "id": "1378661999"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "edgar-filings-mcp",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
