@@ -1,0 +1,25 @@
+name: bdc-lookthrough
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bdc-lookthrough/**"
+      - ".github/workflows/bdc-lookthrough.yml"
+  pull_request:
+    paths:
+      - "bdc-lookthrough/**"
+      - ".github/workflows/bdc-lookthrough.yml"
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bdc-lookthrough
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python tests/run_offline.py

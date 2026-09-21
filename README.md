@@ -133,6 +133,10 @@ python scripts/smoke_stdio.py -- uvx edgar-filings-mcp
 
 `pressure.py` hits live EDGAR and needs `EDGAR_IDENTITY`.
 
+## Related: BDC look-through
+
+`bdc-lookthrough/` is a sister package: borrower overlap across ARCC / BXSL / OBDC Schedules of Investments, named non-accrual, and SOI-vs-balance-sheet reconcile. It is extractable (`uvx --from git+https://github.com/Dxfory/edgar-mcp.git#subdirectory=bdc-lookthrough`). See that README.
+
 ## License
 
 MIT. Filing data is from the SEC EDGAR system; this project is not affiliated with the SEC.
