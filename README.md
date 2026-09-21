@@ -12,15 +12,31 @@ Cursor / Claude tools that return **SEC filing numbers**, not web-search guesses
 
 ## Install
 
-SEC fair-access needs a User-Agent with a **name and a real email** ([SEC FAQ](https://www.sec.gov/os/webmaster-faq#code-support)):
+Three lines:
+
+1. Install `uv` ([docs](https://docs.astral.sh/uv/getting-started/installation/)).
+2. Set `EDGAR_IDENTITY` to a name and a real email ([SEC FAQ](https://www.sec.gov/os/webmaster-faq#code-support)).
+3. Paste `examples/cursor.mcp.json` into the client config.
 
 ```text
 EDGAR_IDENTITY=Your Name you@example.com
 ```
 
-Pin `mcp>=1.9,<2`. MCP 2.x renamed FastMCP.
+macOS / Linux:
 
-### Cursor / Claude Desktop (`uv`)
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://astral.sh/uv/install.ps1 | iex
+```
+
+Then copy `examples/cursor.mcp.json` to `~/.cursor/mcp.json` (Windows: `%USERPROFILE%\.cursor\mcp.json`). Copy `examples/claude.mcp.json` into Claude Desktop’s MCP config.
+
+Pin `mcp>=1.9,<2`. MCP 2.x renamed FastMCP. The package already pins that range.
 
 ```json
 {
@@ -40,9 +56,11 @@ Pin `mcp>=1.9,<2`. MCP 2.x renamed FastMCP.
 }
 ```
 
-Copy `examples/cursor.mcp.json` into `~/.cursor/mcp.json` (Windows: `%USERPROFILE%\.cursor\mcp.json`). Copy `examples/claude.mcp.json` into Claude Desktop’s MCP config.
+That GitHub URL is **v1.1** on `main` (four tools, including `get_bdc_nonaccrual`). The PyPI name `edgar-filings-mcp` is declared in `server.json` but **not published yet**, so `uvx edgar-filings-mcp` without `--from git+...` will fail. The MCP registry listing waits until the PyPI version matches `server.json`. Skip Smithery hosted.
 
-### Clone
+The first `uvx` launch downloads edgartools (pandas / pyarrow). If the client looks stuck, run the same command once in a terminal so uv can cache the wheels, then restart the MCP server. After that, initialize is a couple of seconds.
+
+### Clone (no uv)
 
 ```bash
 git clone https://github.com/Dxfory/edgar-mcp.git
@@ -50,8 +68,17 @@ cd edgar-mcp
 python -m venv .venv
 ```
 
-Windows: `.\.venv\Scripts\python -m pip install -e .`  
-macOS/Linux: `.venv/bin/python -m pip install -e .`
+macOS / Linux:
+
+```bash
+.venv/bin/python -m pip install -e .
+```
+
+Windows:
+
+```text
+.\.venv\Scripts\python -m pip install -e .
+```
 
 Point the client at that interpreter with args `["-m", "edgar_mcp"]`.
 
@@ -70,7 +97,7 @@ python -m pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 | `get_bdc_nonaccrual` | BDC non-accrual rate, fair value, named investments, and extraction method |
 | `get_form4` | Newest Form 4 summaries, transaction lines, `open_market`, and `code_counts` |
 
-`form` on the first three tools is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` only accepts SEC BDCs (814- filers) such as `ARCC`.
+`form` on the first three tools is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` only accepts SEC BDCs (814- filers) such as `ARCC`. There is no fifth tool.
 
 ## Hot-theme footguns this server will / will not answer
 
@@ -99,7 +126,14 @@ stdio only. Do not print to stdout.
 
 ```bash
 python tests/run_offline.py
+python scripts/smoke_stdio.py
 python scripts/pressure.py
+```
+
+`smoke_stdio.py` only checks initialize + four tool names (no EDGAR). After `uvx` is on PATH:
+
+```bash
+python scripts/smoke_stdio.py -- uvx --from git+https://github.com/Dxfory/edgar-mcp.git edgar-filings-mcp
 ```
 
 `pressure.py` hits live EDGAR and needs `EDGAR_IDENTITY`.

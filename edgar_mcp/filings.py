@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -9,6 +10,7 @@ from edgar_mcp.jsonutil import get_field, jsonable
 
 _IDENTITY_DONE = False
 _WARM = False
+_IDENTITY_LOG_FILTER = False
 
 ALLOWED_FORMS = ("10-K", "10-Q")
 
@@ -44,6 +46,35 @@ class EdgarConfigError(RuntimeError):
     pass
 
 
+class _RedactIdentityFilter(logging.Filter):
+    """Keep EDGAR_IDENTITY off stderr. edgartools logs it at INFO on set_identity."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        ident = (os.environ.get("EDGAR_IDENTITY") or "").strip()
+        if not ident:
+            return True
+        msg = record.getMessage()
+        if ident in msg:
+            record.msg = msg.replace(ident, "<redacted>")
+            record.args = ()
+        return True
+
+
+def _install_identity_log_filter() -> None:
+    """Attach redaction to handlers. Logger filters do not run for child loggers like edgar.settings."""
+    global _IDENTITY_LOG_FILTER
+    handlers: list[logging.Handler] = list(logging.getLogger().handlers)
+    if logging.lastResort is not None:
+        handlers.append(logging.lastResort)
+    for handler in handlers:
+        if handler is None:
+            continue
+        if any(isinstance(item, _RedactIdentityFilter) for item in handler.filters):
+            continue
+        handler.addFilter(_RedactIdentityFilter())
+    _IDENTITY_LOG_FILTER = True
+
+
 def ensure_identity() -> str:
     global _IDENTITY_DONE
     ident = (os.environ.get("EDGAR_IDENTITY") or "").strip()
@@ -53,6 +84,7 @@ def ensure_identity() -> str:
             "The SEC requires a User-Agent with a contact email."
         )
     if not _IDENTITY_DONE:
+        _install_identity_log_filter()
         from edgar import set_identity
 
         set_identity(ident)
@@ -68,6 +100,7 @@ def warmup() -> None:
     ensure_identity()
     from edgar.reference.tickers import get_company_tickers
 
+    logging.info("warmup: fetching EDGAR ticker cache")
     get_company_tickers()
     _WARM = True
 
