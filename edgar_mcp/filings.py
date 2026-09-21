@@ -8,6 +8,9 @@ from typing import Any
 from edgar_mcp.jsonutil import get_field, jsonable
 
 _IDENTITY_DONE = False
+_WARM = False
+
+ALLOWED_FORMS = ("10-K", "10-Q")
 
 SEGMENT_AXES = (
     "ProductOrServiceAxis",
@@ -23,6 +26,18 @@ REVENUE_CONCEPTS = (
     "SalesRevenueNet",
     "RevenueFromContractWithCustomerIncludingAssessedTax",
 )
+
+FORM4_CODES: dict[str, tuple[str, bool]] = {
+    "P": ("open-market buy", True),
+    "S": ("open-market sell", True),
+    "A": ("grant / award", False),
+    "M": ("option exercise", False),
+    "F": ("tax withholding", False),
+    "C": ("conversion", False),
+    "G": ("gift", False),
+    "D": ("disposition to issuer", False),
+    "J": ("other", False),
+}
 
 
 class EdgarConfigError(RuntimeError):
@@ -43,6 +58,33 @@ def ensure_identity() -> str:
         set_identity(ident)
         _IDENTITY_DONE = True
     return ident
+
+
+def warmup() -> None:
+    """Prefetch the ticker→CIK table so the first MCP tool call is not the cache miss."""
+    global _WARM
+    if _WARM:
+        return
+    ensure_identity()
+    from edgar.reference.tickers import get_company_tickers
+
+    get_company_tickers()
+    _WARM = True
+
+
+def normalize_form(form: str | None) -> str:
+    raw = (form or "10-K").strip().upper()
+    if raw not in ALLOWED_FORMS:
+        raise ValueError("form must be 10-K or 10-Q")
+    return raw
+
+
+def classify_form4_code(code: Any) -> dict[str, Any]:
+    text = str(code or "").strip().upper()
+    meaning, open_market = FORM4_CODES.get(text, ("unknown / see filing", False))
+    if text == "":
+        return {"code": None, "code_meaning": meaning, "open_market": False}
+    return {"code": text, "code_meaning": meaning, "open_market": open_market}
 
 
 def resolve_company(ticker_or_cik: str) -> Any:
@@ -151,18 +193,8 @@ def _query(xbrl: Any, **kwargs: Any) -> list[Any]:
     return list(q)
 
 
-def trading_symbols(ticker_or_cik: str, accession: str | None = None) -> dict[str, Any]:
-    ensure_identity()
-    company = resolve_company(ticker_or_cik)
-    filing = latest_filing(company, "10-K", accession=accession)
-    xbrl = load_xbrl(filing)
-    info = get_field(xbrl, "entity_info", default={})
-    if callable(info):
-        info = info()
-    info = info or {}
-    facts = _query(xbrl, concept="dei:TradingSymbol", exact=True)
-    if not facts:
-        facts = _query(xbrl, concept="TradingSymbol", exact=False)
+def collect_trading_symbols(facts: list[Any], entity_info: Any) -> dict[str, Any]:
+    """Build the ticker payload from XBRL facts. entity_info.ticker is last-wins."""
     symbols = []
     seen: set[str] = set()
     for fact in facts:
@@ -184,10 +216,9 @@ def trading_symbols(ticker_or_cik: str, accession: str | None = None) -> dict[st
             }
         )
     scalar = None
-    if isinstance(info, dict):
-        scalar = info.get("ticker")
+    if isinstance(entity_info, dict):
+        scalar = entity_info.get("ticker")
     return {
-        "source": filing_meta(filing, company),
         "entity_info_ticker": jsonable(scalar),
         "trading_symbols": symbols,
         "warnings": [
@@ -196,6 +227,27 @@ def trading_symbols(ticker_or_cik: str, accession: str | None = None) -> dict[st
             "Use trading_symbols for every dei:TradingSymbol fact, including class-of-stock dimensions.",
         ],
     }
+
+
+def trading_symbols(
+    ticker_or_cik: str,
+    accession: str | None = None,
+    form: str | None = "10-K",
+) -> dict[str, Any]:
+    ensure_identity()
+    form = normalize_form(form)
+    company = resolve_company(ticker_or_cik)
+    filing = latest_filing(company, form, accession=accession)
+    xbrl = load_xbrl(filing)
+    info = get_field(xbrl, "entity_info", default={})
+    if callable(info):
+        info = info()
+    facts = _query(xbrl, concept="dei:TradingSymbol", exact=True)
+    if not facts:
+        facts = _query(xbrl, concept="TradingSymbol", exact=False)
+    payload = collect_trading_symbols(facts, info or {})
+    payload["source"] = filing_meta(filing, company)
+    return payload
 
 
 def _is_number(value: Any) -> float | None:
@@ -214,10 +266,42 @@ def _is_number(value: Any) -> float | None:
         return None
 
 
-def segment_revenue(ticker_or_cik: str, accession: str | None = None) -> dict[str, Any]:
+def collect_segment_rows(axis: str, facts: list[Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for fact in facts:
+        rec = _fact_record(fact)
+        amount = _is_number(rec.get("value"))
+        if amount is None:
+            continue
+        key = f"{axis}|{rec.get('concept')}|{rec.get('dimensions')}|{rec.get('period_end')}|{amount}"
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(
+            {
+                "axis": axis,
+                "concept": rec.get("concept"),
+                "label": rec.get("label"),
+                "value": amount,
+                "period_start": rec.get("period_start"),
+                "period_end": rec.get("period_end"),
+                "units": rec.get("units"),
+                "dimensions": rec.get("dimensions"),
+            }
+        )
+    return rows
+
+
+def segment_revenue(
+    ticker_or_cik: str,
+    accession: str | None = None,
+    form: str | None = "10-K",
+) -> dict[str, Any]:
     ensure_identity()
+    form = normalize_form(form)
     company = resolve_company(ticker_or_cik)
-    filing = latest_filing(company, "10-K", accession=accession)
+    filing = latest_filing(company, form, accession=accession)
     xbrl = load_xbrl(filing)
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -227,44 +311,31 @@ def segment_revenue(ticker_or_cik: str, accession: str | None = None) -> dict[st
                 facts = _query(xbrl, concept=concept, exact=False, axis=axis)
             except Exception:
                 continue
-            for fact in facts:
-                rec = _fact_record(fact)
-                amount = _is_number(rec.get("value"))
-                if amount is None:
-                    continue
-                key = f"{axis}|{rec.get('concept')}|{rec.get('dimensions')}|{rec.get('period_end')}|{amount}"
+            for row in collect_segment_rows(axis, facts):
+                key = f"{row['axis']}|{row.get('concept')}|{row.get('dimensions')}|{row.get('period_end')}|{row['value']}"
                 if key in seen:
                     continue
                 seen.add(key)
-                rows.append(
-                    {
-                        "axis": axis,
-                        "concept": rec.get("concept"),
-                        "label": rec.get("label"),
-                        "value": amount,
-                        "period_start": rec.get("period_start"),
-                        "period_end": rec.get("period_end"),
-                        "units": rec.get("units"),
-                        "dimensions": rec.get("dimensions"),
-                    }
-                )
+                rows.append(row)
     rows.sort(key=lambda r: (str(r.get("period_end") or ""), -abs(float(r["value"]))))
-    warnings = [
-        "Segment mix is not in get_financials(). These rows are dimensioned XBRL revenue facts.",
-        "StatementView.DETAILED can drop reportable-segment lines on some 10-Ks; this tool does not use that view.",
-        "Issuers tag segments with different axes and concepts. Empty rows means the 10-K likely only has narrative notes.",
-    ]
     return {
         "source": filing_meta(filing, company),
         "segments": rows[:80],
-        "warnings": warnings,
+        "warnings": [
+            "Segment mix is not in get_financials(). These rows are dimensioned XBRL revenue facts.",
+            "StatementView.DETAILED can drop reportable-segment lines on some 10-Ks; this tool does not use that view.",
+            "Issuers tag segments with different axes and concepts. Empty rows means the filing likely only has narrative notes.",
+        ],
     }
 
 
 def _transaction_row(item: Any) -> dict[str, Any]:
+    classified = classify_form4_code(get_field(item, "code"))
     return {
         "transaction_type": jsonable(get_field(item, "transaction_type")),
-        "code": jsonable(get_field(item, "code")),
+        "code": classified["code"],
+        "code_meaning": classified["code_meaning"],
+        "open_market": classified["open_market"],
         "shares": jsonable(get_field(item, "shares")),
         "price_per_share": jsonable(get_field(item, "price_per_share")),
         "value": jsonable(get_field(item, "value")),
@@ -280,11 +351,17 @@ def form4_filings(ticker_or_cik: str, limit: int = 8) -> dict[str, Any]:
     filings = company.get_filings(form="4").head(n)
     results: list[dict[str, Any]] = []
     errors: list[str] = []
+    code_counts: dict[str, int] = {}
     for filing in filings:
         try:
             form4 = filing.obj()
             summary = form4.get_ownership_summary()
             transactions = get_field(summary, "transactions", default=[]) or []
+            rows = [_transaction_row(t) for t in list(transactions)[:12]]
+            for row in rows:
+                code = row.get("code")
+                if code:
+                    code_counts[str(code)] = code_counts.get(str(code), 0) + 1
             results.append(
                 {
                     "source": filing_meta(filing, company),
@@ -295,7 +372,7 @@ def form4_filings(ticker_or_cik: str, limit: int = 8) -> dict[str, Any]:
                     "net_value": jsonable(get_field(summary, "net_value")),
                     "reporting_date": jsonable(get_field(summary, "reporting_date")),
                     "remaining_shares": jsonable(get_field(summary, "remaining_shares")),
-                    "transactions": [_transaction_row(t) for t in list(transactions)[:12]],
+                    "transactions": rows,
                 }
             )
         except Exception as exc:
@@ -305,10 +382,11 @@ def form4_filings(ticker_or_cik: str, limit: int = 8) -> dict[str, Any]:
         "company_name": jsonable(get_field(company, "name")),
         "cik": jsonable(get_field(company, "cik")),
         "count": len(results),
+        "code_counts": code_counts,
         "filings": results,
         "warnings": [
             "Form 4 codes: P open-market buy, S open-market sell, A grant, M option exercise, F tax withholding.",
-            "Awards and option exercises are not open-market purchases.",
+            "open_market is false for A/M/F. Awards and option exercises are not open-market purchases.",
             *errors,
         ],
     }
