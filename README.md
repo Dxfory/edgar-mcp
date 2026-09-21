@@ -2,9 +2,11 @@
 
 <!-- mcp-name: io.github.Dxfory/edgar-mcp -->
 
+[![PyPI](https://img.shields.io/pypi/v/edgar-filings-mcp)](https://pypi.org/project/edgar-filings-mcp/)
+
 Cursor / Claude tools that return **SEC filing numbers**, not web-search guesses.
 
-**Who this is for:** people already in an IDE chat who need a ticker’s 10-K/10-Q symbols, segment revenue, or Form 4 lines without writing edgartools glue.
+**Who this is for:** people already in an IDE chat who need a ticker’s 10-K/10-Q symbols, segment revenue, BDC non-accrual, or Form 4 lines without writing edgartools glue.
 
 **Pain it solves:** models invent segment mix, insider trades, and BDC credit quality. These tools return accession, concept, period, `open_market`, non-accrual method, and the EDGAR index URL so you can check the filing.
 
@@ -52,7 +54,7 @@ Pin `mcp>=1.9,<2`. MCP 2.x renamed FastMCP. The package already pins that range.
 }
 ```
 
-PyPI package `edgar-filings-mcp` 1.1.0 is live. Registry name is `io.github.Dxfory/edgar-mcp`. Skip Smithery hosted.
+PyPI package `edgar-filings-mcp` is live. Registry name is `io.github.Dxfory/edgar-mcp`. Skip Smithery hosted.
 
 From git instead of PyPI:
 

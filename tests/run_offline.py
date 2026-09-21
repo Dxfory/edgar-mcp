@@ -218,9 +218,22 @@ class PackageSurfaceTests(unittest.TestCase):
         self.assertNotIn("not published yet", text.lower())
         self.assertIn("mcp>=1.9,<2", text)
         self.assertIn("mcp-name: io.github.Dxfory/edgar-mcp", text)
+        self.assertIn("BDC non-accrual", text.split("**Who this is for:**", 1)[1][:200])
+        first_json = text.split("```json", 1)[1].split("```", 1)[0]
+        self.assertIn('"args": ["edgar-filings-mcp"]', first_json)
+        self.assertNotIn("git+", first_json)
+        self.assertNotIn("--from", first_json)
         cursor = self._read("examples", "cursor.mcp.json")
         self.assertIn('"edgar-filings-mcp"', cursor)
         self.assertNotIn("git+", cursor)
+
+    def test_server_json_discovery_fields(self):
+        with open(os.path.join(ROOT, "server.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        self.assertEqual(manifest["name"], "io.github.Dxfory/edgar-mcp")
+        self.assertEqual(manifest["websiteUrl"], "https://github.com/Dxfory/edgar-mcp")
+        self.assertEqual(manifest["repository"]["id"], "1378661999")
+        self.assertLessEqual(len(manifest["description"]), 100)
 
     def test_identity_redaction(self):
         self.addCleanup(os.environ.pop, "EDGAR_IDENTITY", None)

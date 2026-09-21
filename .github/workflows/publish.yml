@@ -1,17 +1,12 @@
-# Publish edgar-filings-mcp 1.1.0 to PyPI, then io.github.Dxfory/edgar-mcp
-# to the official MCP registry.
+# Publish edgar-filings-mcp to PyPI, then io.github.Dxfory/edgar-mcp
+# to the official MCP registry, then a GitHub Release for vX.Y.Z tags.
 #
-# One-time PyPI setup (required; this repo has no publish token):
-#   1. Sign in at https://pypi.org/manage/account/publishing/
-#   2. Add a pending trusted publisher:
-#        PyPI project name: edgar-filings-mcp
-#        Owner: Dxfory
-#        Repository: edgar-mcp
-#        Workflow filename: publish.yml
-#        Environment: (leave blank)
-#   3. Merge this workflow to main, then either:
-#        git tag v1.1.0 && git push origin v1.1.0
-#      or Actions → publish → Run workflow
+# PyPI auth (one of these; no long-lived token in git or chat):
+#   1. Preferred — trusted publisher:
+#        https://pypi.org/manage/project/edgar-filings-mcp/settings/publishing/
+#        Owner: Dxfory  Repository: edgar-mcp
+#        Workflow: publish.yml  Environment: (leave blank)
+#   2. Fallback — repo secret PYPI_API_TOKEN (PyPI "Trusted Publishing" is better).
 #
 # Registry auth is GitHub OIDC (io.github.Dxfory/*). No Smithery. No fifth tool.
 
@@ -47,6 +42,8 @@ jobs:
       contents: read
     outputs:
       skipped: ${{ steps.present.outputs.skipped }}
+    env:
+      HAS_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
       - name: Skip upload if this version is already on PyPI
@@ -68,8 +65,15 @@ jobs:
         if: steps.present.outputs.skipped != 'true'
       - run: python -m build
         if: steps.present.outputs.skipped != 'true'
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        if: steps.present.outputs.skipped != 'true'
+      - name: Publish to PyPI with API token
+        if: steps.present.outputs.skipped != 'true' && env.HAS_PYPI_TOKEN == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish to PyPI with OIDC
+        if: steps.present.outputs.skipped != 'true' && env.HAS_PYPI_TOKEN != 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
 
@@ -99,3 +103,47 @@ jobs:
             echo "registry publish attempt $n failed (PyPI may still be propagating); retrying in 15s"
             sleep 15
           done
+
+  github_release:
+    needs: check
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "skip non-semver tag ${GITHUB_REF_NAME}"
+            exit 0
+          fi
+          ver=$(python3 -c "import re; print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml', encoding='utf-8').read(), re.M).group(1))")
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "release ${GITHUB_REF_NAME} already exists"
+            exit 0
+          fi
+          gh release create "${GITHUB_REF_NAME}" --verify-tag --title "edgar-filings-mcp ${ver}" --notes-file - <<'EOF'
+          Four tools: `get_trading_symbols`, `get_segment_revenue`, `get_bdc_nonaccrual`, `get_form4`. No fifth tool.
+
+          Install with `uvx`:
+
+          ```json
+          {
+            "mcpServers": {
+              "edgar-filings": {
+                "command": "uvx",
+                "args": ["edgar-filings-mcp"],
+                "env": {
+                  "EDGAR_IDENTITY": "Your Name you@example.com"
+                }
+              }
+            }
+          }
+          ```
+
+          PyPI: https://pypi.org/project/edgar-filings-mcp/
+          MCP registry: `io.github.Dxfory/edgar-mcp`
+          EOF
