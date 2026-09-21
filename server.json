@@ -1,19 +1,19 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Dxfory/edgar-mcp",
-  "description": "SEC 10-K/10-Q trading symbols, dimensioned segment revenue, and Form 4 lines with citations.",
+  "description": "SEC 10-K/10-Q trading symbols, dimensioned segment revenue, BDC non-accrual, and Form 4 lines with citations.",
   "title": "EDGAR Filings",
   "repository": {
     "url": "https://github.com/Dxfory/edgar-mcp",
     "source": "github"
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "edgar-filings-mcp",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

@@ -6,9 +6,9 @@ Cursor / Claude tools that return **SEC filing numbers**, not web-search guesses
 
 **Who this is for:** people already in an IDE chat who need a ticker’s 10-K/10-Q symbols, segment revenue, or Form 4 lines without writing edgartools glue.
 
-**Pain it solves:** models invent segment mix and insider trades. These tools return accession, concept, period, `open_market`, and the EDGAR index URL so you can check the filing.
+**Pain it solves:** models invent segment mix, insider trades, and BDC credit quality. These tools return accession, concept, period, `open_market`, non-accrual method, and the EDGAR index URL so you can check the filing.
 
-**What it is not:** a research product, a document reader, or a substitute for reading the 10-K. It wraps [edgartools](https://github.com/dgunning/edgartools) for three jobs only.
+**What it is not:** a research product, a document reader, or a substitute for reading the 10-K. It wraps [edgartools](https://github.com/dgunning/edgartools) for four jobs only. China PE, humanoid robots, and unlisted credit CVs are out of scope — those filings are not on EDGAR.
 
 ## Install
 
@@ -67,15 +67,27 @@ python -m pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 | --- | --- |
 | `get_trading_symbols` | Every `dei:TradingSymbol` on the latest 10-K or 10-Q, plus the legacy `entity_info` scalar |
 | `get_segment_revenue` | Dimensioned XBRL revenue (product / business / geographic axes) |
+| `get_bdc_nonaccrual` | BDC non-accrual rate, fair value, named investments, and extraction method |
 | `get_form4` | Newest Form 4 summaries, transaction lines, `open_market`, and `code_counts` |
 
-`form` on the first two tools is `10-K` (default) or `10-Q`.
+`form` on the first three tools is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` only accepts SEC BDCs (814- filers) such as `ARCC`.
+
+## Hot-theme footguns this server will / will not answer
+
+| Theme | Agent invents | Tool | Stop |
+| --- | --- | --- | --- |
+| AI infrastructure | NVIDIA / hyperscaler “AI mix” | `get_segment_revenue` on `NVDA` (Data Center is tagged). AMZN/MSFT capex is **not** AI-only | Do not add a fake AI-capex tool |
+| Private credit / BDC | Non-accrual, NAV as credit quality, PIK as current | `get_bdc_nonaccrual` | Non-accrual ≠ Fitch default rate; PIK can still be accrual |
+| GP-led continuation vehicles | Deal price and “premium to par” | None | Private secondaries are not EDGAR |
+| China PE / 具身智能 | Round sizes and factory hours | None | SSE/HKEX, not EDGAR |
 
 ## Footguns the tools already warn about
 
 - `entity_info.ticker` is last-wins on repeated `TradingSymbol` facts. Dual-class and preferred tickers can replace the common symbol.
 - Segment mix is **not** in `get_financials()`. Some statement “DETAILED” views drop reportable-segment lines; this server queries dimensioned facts instead.
 - Form 4 `A` / `M` / `F` are grants, option exercises, and tax withholding — `open_market` is false.
+- BDC `extraction_method=none` or a zero rate plus extractor warnings is a parse gap, not proof the book is clean.
+- Latest `10-K` can be a `10-K/A`. The tools prefer the original form so Schedule-of-Investments footnotes are not dropped.
 
 ## Run without Cursor
 

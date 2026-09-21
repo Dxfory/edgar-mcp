@@ -1,4 +1,4 @@
-"""MCP server: SEC 10-K/10-Q symbols, segment revenue, Form 4."""
+"""MCP server: SEC 10-K/10-Q symbols, segment revenue, BDC non-accrual, Form 4."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 from edgar_mcp.filings import (
     EdgarConfigError,
+    bdc_nonaccrual,
     form4_filings,
     segment_revenue,
     trading_symbols,
@@ -37,9 +38,10 @@ mcp = FastMCP(
     instructions=(
         "Read numbers from SEC EDGAR 10-K/10-Q XBRL and Form 4 via edgartools. "
         "Always cite accession_number and index_url. "
-        "Do not invent segment mix or insider trades. "
+        "Do not invent segment mix, insider trades, or BDC credit quality. "
         "entity_info_ticker can be the wrong class on multi-security filings; prefer trading_symbols. "
-        "Form 4 A/M/F are not open-market trades; trust open_market=false."
+        "Form 4 A/M/F are not open-market trades; trust open_market=false. "
+        "BDC non-accrual is not a default rate; PIK and amend-and-extend can still be accrual."
     ),
     lifespan=_lifespan,
 )
@@ -90,6 +92,27 @@ def get_segment_revenue(
         return _fail(exc)
     except Exception as exc:
         logging.exception("get_segment_revenue failed")
+        return _fail(exc)
+
+
+@mcp.tool()
+def get_bdc_nonaccrual(
+    ticker_or_cik: str,
+    accession: str | None = None,
+    form: str = "10-K",
+) -> dict:
+    """Non-accrual investments from a BDC 10-K or 10-Q, cited to the filing.
+
+    Use this instead of guessing private-credit quality. ticker_or_cik must be
+    an SEC BDC (814- filer) such as ARCC. Operating companies like NVDA raise.
+    Non-accrual is the filer's tagged status, not Fitch PCDR and not PIK.
+    """
+    try:
+        return bdc_nonaccrual(ticker_or_cik, accession=accession, form=form)
+    except (EdgarConfigError, ValueError) as exc:
+        return _fail(exc)
+    except Exception as exc:
+        logging.exception("get_bdc_nonaccrual failed")
         return _fail(exc)
 
 

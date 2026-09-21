@@ -99,11 +99,43 @@ def resolve_company(ticker_or_cik: str) -> Any:
     return company
 
 
+def prefer_original_form(filings_list: list[Any], form: str) -> Any | None:
+    """10-K/A is often newer than 10-K and can omit Schedule-of-Investments XBRL."""
+    rows = [item for item in filings_list if item is not None]
+    if not rows:
+        return None
+    exact = [item for item in rows if str(get_field(item, "form") or "") == form]
+    if exact:
+        return exact[0]
+    return rows[0]
+
+
+def _head_filings(filings: Any, limit: int = 20) -> list[Any]:
+    try:
+        head = filings.head(limit)
+    except Exception:
+        try:
+            return list(filings)[:limit]
+        except Exception:
+            return []
+    try:
+        return list(head)
+    except TypeError:
+        try:
+            return [head[i] for i in range(limit)]
+        except Exception:
+            return []
+
+
 def latest_filing(company: Any, form: str, accession: str | None = None) -> Any:
     kwargs: dict[str, Any] = {"form": form}
     if accession:
         kwargs["accession_number"] = accession
     filings = company.get_filings(**kwargs)
+    if accession is None:
+        picked = prefer_original_form(_head_filings(filings), form)
+        if picked is not None:
+            return picked
     latest = getattr(filings, "latest", None)
     if callable(latest):
         filing = latest()
@@ -390,3 +422,107 @@ def form4_filings(ticker_or_cik: str, limit: int = 8) -> dict[str, Any]:
             *errors,
         ],
     }
+
+
+def _clip(text: Any, limit: int = 400) -> str | None:
+    if text is None:
+        return None
+    value = str(text).strip()
+    if value == "":
+        return None
+    if len(value) <= limit:
+        return value
+    if limit <= 3:
+        return value[:limit]
+    return value[: limit - 3] + "..."
+
+
+def _cik_int(value: Any) -> int:
+    text = str(value or "").strip().lstrip("0")
+    if text == "":
+        return 0
+    try:
+        return int(text)
+    except ValueError:
+        return 0
+
+
+def require_bdc(company: Any) -> int:
+    """Refuse operating companies. Non-accrual is a BDC Schedule-of-Investments fact."""
+    from edgar.bdc import is_bdc_cik
+
+    cik = _cik_int(get_field(company, "cik"))
+    name = get_field(company, "name") or cik
+    if cik == 0 or not is_bdc_cik(cik):
+        raise ValueError(
+            f"{name} is not on the SEC BDC (814-) list. "
+            "get_bdc_nonaccrual only reads Business Development Company filings. "
+            "It does not estimate private-credit quality for operating companies."
+        )
+    return cik
+
+
+def serialize_nonaccrual(result: Any, source: dict[str, Any]) -> dict[str, Any]:
+    """Shape edgartools NonAccrualResult for MCP. Duck-typed so tests stay offline."""
+    investments: list[dict[str, Any]] = []
+    for inv in list(getattr(result, "investments", None) or [])[:40]:
+        investments.append(
+            {
+                "identifier": jsonable(getattr(inv, "identifier", None)),
+                "company_name": jsonable(getattr(inv, "company_name", None)),
+                "investment_type": jsonable(getattr(inv, "investment_type", None)),
+                "fair_value": jsonable(getattr(inv, "fair_value", None)),
+                "cost": jsonable(getattr(inv, "cost", None)),
+                "footnote_text": _clip(getattr(inv, "footnote_text", None)),
+            }
+        )
+    rate = getattr(result, "nonaccrual_rate", None)
+    method = getattr(result, "extraction_method", None) or "none"
+    extractor_warnings = [str(item) for item in (getattr(result, "warnings", None) or [])]
+    return {
+        "source": source,
+        "extraction_method": method,
+        "nonaccrual_rate": jsonable(rate),
+        "nonaccrual_rate_pct": None if rate is None else round(float(rate) * 100, 4),
+        "nonaccrual_fair_value": jsonable(getattr(result, "nonaccrual_fair_value", None)),
+        "total_portfolio_fair_value": jsonable(
+            getattr(result, "total_portfolio_fair_value", None)
+        ),
+        "num_nonaccrual": int(getattr(result, "num_nonaccrual", len(investments)) or 0),
+        "custom_concept_rate": jsonable(getattr(result, "custom_concept_rate", None)),
+        "aggregate_concept_value": jsonable(getattr(result, "aggregate_concept_value", None)),
+        "investments": investments,
+        "warnings": [
+            "Non-accrual is the filer's tagged status, not a Fitch private-credit default rate.",
+            "Loans can still be 'accrual' while paying PIK or after a distressed extension.",
+            "extraction_method footnote > custom_concept > aggregate_concept > none. none is not proof of zero.",
+            "A zero rate with extractor warnings is a parse gap until you read the filing.",
+            *extractor_warnings,
+        ],
+    }
+
+
+def bdc_nonaccrual(
+    ticker_or_cik: str,
+    accession: str | None = None,
+    form: str | None = "10-K",
+) -> dict[str, Any]:
+    ensure_identity()
+    form = normalize_form(form)
+    company = resolve_company(ticker_or_cik)
+    require_bdc(company)
+    filing = latest_filing(company, form, accession=accession)
+    from edgar.bdc.nonaccrual import extract_nonaccrual
+
+    result = extract_nonaccrual(filing)
+    if result is None:
+        raise ValueError(
+            f"No XBRL non-accrual extract for this {form}. "
+            "Open the index_url and read the Schedule of Investments footnotes."
+        )
+    payload = serialize_nonaccrual(result, filing_meta(filing, company))
+    if result.extraction_method == "none" and result.num_nonaccrual == 0:
+        payload["warnings"].append(
+            "Extractor found no non-accrual signal. Confirm in the filing before treating this as 0%."
+        )
+    return payload

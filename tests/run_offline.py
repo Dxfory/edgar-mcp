@@ -18,6 +18,8 @@ from edgar_mcp.filings import (  # noqa: E402
     collect_trading_symbols,
     ensure_identity,
     normalize_form,
+    prefer_original_form,
+    serialize_nonaccrual,
 )
 
 
@@ -125,6 +127,34 @@ class Form4FootgunTests(unittest.TestCase):
         out = classify_form4_code("p")
         self.assertTrue(out["open_market"])
         self.assertIn("buy", out["code_meaning"])
+
+
+class BdcNonaccrualFootgunTests(unittest.TestCase):
+    def test_serialize_does_not_treat_none_method_as_clean_zero(self):
+        result = type(
+            "R",
+            (),
+            {
+                "investments": [],
+                "nonaccrual_rate": None,
+                "extraction_method": "none",
+                "nonaccrual_fair_value": None,
+                "total_portfolio_fair_value": None,
+                "num_nonaccrual": 0,
+                "custom_concept_rate": None,
+                "aggregate_concept_value": None,
+                "warnings": ["no linked footnotes"],
+            },
+        )()
+        out = serialize_nonaccrual(result, {"index_url": "https://www.sec.gov/example"})
+        self.assertEqual(out["extraction_method"], "none")
+        self.assertIsNone(out["nonaccrual_rate"])
+        self.assertTrue(any("parse gap" in item or "none is not proof" in item for item in out["warnings"]))
+        self.assertIn("no linked footnotes", out["warnings"])
+
+    def test_prefer_original_form_skips_10k_amendment(self):
+        picked = prefer_original_form([{"form": "10-K/A"}, {"form": "10-K"}], "10-K")
+        self.assertEqual(picked["form"], "10-K")
 
 
 if __name__ == "__main__":

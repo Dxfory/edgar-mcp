@@ -34,6 +34,7 @@ def main() -> int:
     _load_dotenv()
     from edgar_mcp.filings import (
         EdgarConfigError,
+        bdc_nonaccrual,
         form4_filings,
         normalize_form,
         segment_revenue,
@@ -140,6 +141,30 @@ def main() -> int:
             except Exception as exc:
                 check(f"{ticker} form4", False, f"{type(exc).__name__}: {exc}")
                 traceback.print_exc()
+
+    time.sleep(0.35)
+    try:
+        bdc_nonaccrual("NVDA")
+        check("NVDA rejected as BDC", False, "operating company should raise")
+    except ValueError as exc:
+        check("NVDA rejected as BDC", "BDC" in str(exc), str(exc)[:240])
+    except Exception as exc:
+        check("NVDA rejected as BDC", False, f"{type(exc).__name__}: {exc}")
+
+    time.sleep(0.35)
+    try:
+        out = bdc_nonaccrual("ARCC")
+        src = out.get("source") or {}
+        method = out.get("extraction_method")
+        check(
+            "ARCC nonaccrual",
+            bool(src.get("index_url") and src.get("accession_number"))
+            and method in {"footnote", "custom_concept", "aggregate_concept", "none"},
+            f"method={method} rate={out.get('nonaccrual_rate')} n={out.get('num_nonaccrual')}",
+        )
+    except Exception as exc:
+        check("ARCC nonaccrual", False, f"{type(exc).__name__}: {exc}")
+        traceback.print_exc()
 
     print(f"{passed} passed, {failed} failed")
     return 1 if failed else 0
