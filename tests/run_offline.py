@@ -219,10 +219,13 @@ class PackageSurfaceTests(unittest.TestCase):
         self.assertIn("mcp>=1.9,<2", text)
         self.assertIn("mcp-name: io.github.Dxfory/edgar-mcp", text)
         self.assertIn("BDC non-accrual", text.split("**Who this is for:**", 1)[1][:200])
+        install = text.split("## Install", 1)[1].split("## Tools", 1)[0]
+        self.assertLess(install.find("```json"), install.find("curl -LsSf"))
         first_json = text.split("```json", 1)[1].split("```", 1)[0]
         self.assertIn('"args": ["edgar-filings-mcp"]', first_json)
         self.assertNotIn("git+", first_json)
         self.assertNotIn("--from", first_json)
+        self.assertNotIn("first three tools", text)
         cursor = self._read("examples", "cursor.mcp.json")
         self.assertIn('"edgar-filings-mcp"', cursor)
         self.assertNotIn("git+", cursor)
