@@ -125,6 +125,7 @@ def _mcp_session(command: Sequence[str], ctr: _Counter) -> None:
 
     env = os.environ.copy()
     env.pop("EDGAR_IDENTITY", None)
+    env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
     proc = subprocess.Popen(
         list(command),
         stdin=subprocess.PIPE,
