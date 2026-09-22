@@ -1,0 +1,38 @@
+[project]
+name = "bdc-lookthrough"
+version = "0.1.0"
+description = "Look through BDC Schedules of Investments: borrower overlap, named non-accrual, and balance-sheet reconcile with filing citations."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Zheng Xing", email = "dxfory@icloud.com" }]
+keywords = ["mcp", "bdc", "private-credit", "sec", "edgar", "schedule-of-investments", "xbrl"]
+dependencies = [
+    "mcp>=1.9,<2",
+]
+
+[project.optional-dependencies]
+live = ["edgartools>=4.0"]
+dev = ["pytest>=8.0"]
+
+[project.urls]
+Homepage = "https://github.com/Dxfory/edgar-mcp/tree/main/bdc-lookthrough"
+Issues = "https://github.com/Dxfory/edgar-mcp/issues"
+
+[project.scripts]
+bdc-lookthrough = "bdc_lookthrough.__main__:main"
+bdc-lookthrough-mcp = "bdc_lookthrough.server:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+bdc_lookthrough = ["data/*.json.gz"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
