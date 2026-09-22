@@ -139,13 +139,20 @@ class Snapshot:
         n = clamp_limit(limit, default=40)
         if len(q_norm) < 3:
             raise ValueError("borrower query must have at least 3 letters after normalization")
-        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        matched_norms: set[str] = set()
         for row in self.holdings:
             names = list(row.get("aliases") or [])
             if is_junk_borrower(row.get("borrower_norm")):
                 continue
             if query_matches(q_norm, names):
-                groups[str(row.get("borrower_norm") or "")].append(row)
+                norm = str(row.get("borrower_norm") or "")
+                if norm:
+                    matched_norms.add(norm)
+        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in self.holdings:
+            norm = str(row.get("borrower_norm") or "")
+            if norm in matched_norms:
+                groups[norm].append(row)
         if not groups:
             return {
                 "query": q_raw,

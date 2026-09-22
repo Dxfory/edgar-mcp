@@ -38,7 +38,7 @@ GENERIC_QUERIES = (
 KNOWN_HITS = {
     "Auctane": {"ARCC", "BXSL", "OBDC"},
     "Anaplan": {"ARCC", "BXSL", "OBDC"},
-    "Stamps.com": {"OBDC"},
+    "Stamps.com": {"ARCC", "BXSL", "OBDC"},
     "Guidehouse": {"BXSL", "OBDC"},
     "PetVet": {"ARCC", "OBDC"},
 }

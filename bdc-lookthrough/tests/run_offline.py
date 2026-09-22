@@ -89,7 +89,10 @@ class SnapshotTests(unittest.TestCase):
 
     def test_stamps_fka_finds_auctane(self):
         hit = self.snap.overlap("Stamps.com")
-        self.assertIn("OBDC", hit["tickers"])
+        auctane = self.snap.overlap("Auctane")
+        self.assertEqual(set(hit["tickers"]), {"ARCC", "BXSL", "OBDC"})
+        self.assertEqual(hit["bdc_count"], auctane["bdc_count"])
+        self.assertEqual(hit["total_fair_value"], auctane["total_fair_value"])
         self.assertTrue(any("Auctane" in (pos.get("company_name") or "") for pos in hit["positions"]))
 
     def test_anaplan_three_bdcs(self):
