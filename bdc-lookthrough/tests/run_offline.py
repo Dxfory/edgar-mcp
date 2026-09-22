@@ -48,6 +48,25 @@ class NameTests(unittest.TestCase):
         self.assertTrue(query_matches("stamps", ["stamps com"]))
         self.assertTrue(query_matches("anaplan", ["anaplan"]))
         self.assertFalse(query_matches("ab", ["abc"]))
+        self.assertFalse(query_matches("group", ["abzena holdings and astro group holdings"]))
+        self.assertFalse(query_matches("software", ["hyland software"]))
+
+    def test_generic_query_does_not_sweep_the_book(self):
+        snap = load_snapshot()
+        hit = snap.overlap("group")
+        self.assertEqual(hit["bdc_count"], 0)
+        self.assertEqual(hit["n_positions"], 0)
+
+    def test_limit_zero_is_rejected(self):
+        snap = load_snapshot()
+        with self.assertRaises(ValueError) as ctx:
+            snap.soi("ARCC", limit=0)
+        self.assertIn("1 to 200", str(ctx.exception))
+
+    def test_blank_nonaccrual_ticker_lists_all(self):
+        snap = load_snapshot()
+        out = snap.nonaccrual_names("  ")
+        self.assertGreaterEqual(len(out["blocks"]), 3)
 
 
 class SnapshotTests(unittest.TestCase):
@@ -145,6 +164,7 @@ class SurfaceTests(unittest.TestCase):
         self.assertIn("Auctane", text)
         self.assertIn("reconcile_ok", text)
         self.assertIn("bdc-lookthrough-mcp", text)
+        self.assertIn("python scripts/pressure.py", text)
 
     def test_mcp_pin(self):
         self.assertIn('"mcp>=1.9,<2"', _read("pyproject.toml"))

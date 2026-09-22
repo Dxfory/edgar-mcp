@@ -135,7 +135,11 @@ python scripts/smoke_stdio.py -- uvx edgar-filings-mcp
 
 ## Related: BDC look-through
 
-`bdc-lookthrough/` is a sister package: borrower overlap across ARCC / BXSL / OBDC Schedules of Investments, named non-accrual, and SOI-vs-balance-sheet reconcile. It is extractable (`uvx --from git+https://github.com/Dxfory/edgar-mcp.git#subdirectory=bdc-lookthrough`). See that README.
+`bdc-lookthrough/` is a small sister package for borrower overlap across ARCC / BXSL / OBDC Schedules of Investments, named non-accrual, and SOI-versus-balance-sheet reconcile. It is extractable:
+
+`uvx --from git+https://github.com/Dxfory/edgar-mcp.git#subdirectory=bdc-lookthrough`
+
+Please see that folder’s README for limits and citations.
 
 ## License
 

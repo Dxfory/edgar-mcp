@@ -59,14 +59,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     snap = load_snapshot()
-    if args.cmd == "overlap":
-        return _print(snap.overlap(args.borrower, limit=args.limit))
-    if args.cmd == "soi":
-        return _print(snap.soi(args.ticker, limit=args.limit, debt_only=args.debt_only))
-    if args.cmd == "nonaccrual":
-        return _print(snap.nonaccrual_names(args.ticker))
-    if args.cmd == "reconcile":
-        return _print(snap.reconcile(args.ticker))
+    try:
+        if args.cmd == "overlap":
+            return _print(snap.overlap(args.borrower, limit=args.limit))
+        if args.cmd == "soi":
+            return _print(snap.soi(args.ticker, limit=args.limit, debt_only=args.debt_only))
+        if args.cmd == "nonaccrual":
+            return _print(snap.nonaccrual_names(args.ticker))
+        if args.cmd == "reconcile":
+            return _print(snap.reconcile(args.ticker))
+    except ValueError as exc:
+        return _print({"error": f"ValueError: {exc}"})
     parser.error(f"unknown command {args.cmd}")
     return 2
 

@@ -11,7 +11,7 @@ description: >
 
 You may not answer BDC / private-credit quality, loan overlap, or non-accrual from web search or model memory.
 
-Call the `bdc-lookthrough` MCP tools. Cite `accession_number` and `index_url` in the user-visible answer.
+Please call the `bdc-lookthrough` MCP tools. Cite `accession_number` and `index_url` in the user-visible answer. If a tool cannot answer, say so plainly.
 
 ## Tools
 

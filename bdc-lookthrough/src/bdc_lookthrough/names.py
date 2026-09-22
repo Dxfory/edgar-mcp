@@ -48,6 +48,58 @@ JUNK_EXACT = {
     "common units",
 }
 
+# Bare queries that are industry/legal filler. Exact full-name match is still allowed.
+GENERIC_TOKENS = frozenset(
+    {
+        "group",
+        "groups",
+        "parent",
+        "holding",
+        "holdings",
+        "holdco",
+        "capital",
+        "acquisition",
+        "international",
+        "management",
+        "software",
+        "health",
+        "services",
+        "service",
+        "partners",
+        "partner",
+        "funding",
+        "borrower",
+        "midco",
+        "topco",
+        "usa",
+        "class",
+        "common",
+        "units",
+        "unit",
+        "and",
+        "the",
+        "company",
+        "companies",
+        "solutions",
+        "global",
+        "america",
+        "american",
+        "intermediate",
+        "financial",
+        "finance",
+        "credit",
+        "lending",
+        "systems",
+        "system",
+        "tech",
+        "technology",
+        "technologies",
+        "industries",
+        "industry",
+        "partners",
+    }
+)
+
 AKA_SPLIT = re.compile(
     r"[\(\[]\s*(?P<label>d/?b/?a|dba|f/?k/?a|fka|formerly known as)\s*[:\-]?\s*(?P<name>[^\)\]]+)[\)\]]",
     re.I,
@@ -126,20 +178,28 @@ def is_junk_borrower(norm: str | None) -> bool:
 
 
 def query_matches(query_norm: str, names: list[str]) -> bool:
-    """True if a user query hits a primary name or alias."""
+    """True if a user query hits a primary name or alias.
+
+    Generic tokens such as ``group`` or ``software`` only match a full name.
+    """
     q = (query_norm or "").strip()
     if len(q) < 3:
         return False
+    generic = q in GENERIC_TOKENS
     for name in names:
         if not name:
             continue
         if q == name:
             return True
-        if len(q) >= 4 and (name.startswith(q) or q.startswith(name)):
+        if generic:
+            continue
+        if len(q) >= 4 and name.startswith(q):
+            return True
+        if len(q) >= 6 and len(name) >= 6 and q.startswith(name):
             return True
         tokens = name.split()
-        if q in tokens:
+        if len(q) >= 5 and q in tokens:
             return True
-        if len(q) >= 5 and q in name:
+        if len(q) >= 6 and q in name:
             return True
     return False

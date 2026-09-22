@@ -15,6 +15,8 @@ from bdc_lookthrough.names import aliases_for, is_junk_borrower, normalize_borro
 
 RECONCILE_OK_PCT = 0.03
 DEFAULT_TICKERS = ("ARCC", "BXSL", "OBDC")
+LIMIT_MIN = 1
+LIMIT_MAX = 200
 SNAPSHOT_WARNINGS = (
     "Numbers come from a dated public 10-Q/10-K snapshot unless you refresh. Cite accession_number.",
     "Overlap is normalized legal-name matching, not a CUSIP or loan ID. Misses and collisions happen.",
@@ -40,6 +42,18 @@ def resolve_snapshot_path(path: str | None = None) -> str:
     if override:
         return override
     return bundled_snapshot_path()
+
+
+def clamp_limit(limit: Any, *, default: int = 40) -> int:
+    if limit is None:
+        limit = default
+    try:
+        n = int(limit)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"limit must be an integer from {LIMIT_MIN} to {LIMIT_MAX}") from exc
+    if n < LIMIT_MIN or n > LIMIT_MAX:
+        raise ValueError(f"limit must be an integer from {LIMIT_MIN} to {LIMIT_MAX}")
+    return n
 
 
 def _enrich_holding(row: dict[str, Any]) -> dict[str, Any]:
@@ -99,12 +113,13 @@ class Snapshot:
 
     def soi(self, ticker: str, *, limit: int = 40, debt_only: bool = False) -> dict[str, Any]:
         key = self.require_ticker(ticker)
+        n = clamp_limit(limit, default=40)
         rows = list(self._by_ticker.get(key) or [])
         if debt_only:
             rows = [row for row in rows if row.get("is_debt")]
         rows = sorted(rows, key=lambda item: abs(float(item.get("fair_value") or 0)), reverse=True)
         source = dict(self.source_for(key) or {})
-        clipped = [jsonable(_public_holding(row)) for row in rows[: max(1, min(int(limit), 200))]]
+        clipped = [jsonable(_public_holding(row)) for row in rows[:n]]
         return {
             "data_mode": self.data_mode,
             "source": jsonable(source),
@@ -121,6 +136,7 @@ class Snapshot:
     def overlap(self, query: str, *, limit: int = 40) -> dict[str, Any]:
         q_raw = (query or "").strip()
         q_norm = normalize_borrower(q_raw)
+        n = clamp_limit(limit, default=40)
         if len(q_norm) < 3:
             raise ValueError("borrower query must have at least 3 letters after normalization")
         groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -170,7 +186,7 @@ class Snapshot:
                     }
                 )
             )
-        returned = [jsonable(_public_holding(row)) for row in positions[: max(1, min(int(limit), 200))]]
+        returned = [jsonable(_public_holding(row)) for row in positions[:n]]
         extra = []
         if len(tickers) == 1:
             extra.append("Only one BDC in this snapshot matched. That is not proof the loan is unique to them.")
@@ -191,8 +207,9 @@ class Snapshot:
 
     def nonaccrual_names(self, ticker: str | None = None) -> dict[str, Any]:
         rows = list(self.nonaccrual)
-        if ticker:
-            key = self.require_ticker(ticker)
+        key = (ticker or "").strip()
+        if key:
+            key = self.require_ticker(key)
             rows = [item for item in rows if str(item.get("ticker") or "").upper() == key]
         named: list[dict[str, Any]] = []
         for block in rows:

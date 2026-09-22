@@ -1,6 +1,8 @@
 # BDC Lookthrough
 
-Which publicly traded BDCs hold the same private borrower — from the **Schedule of Investments**, with a filing URL, not from a chat model’s memory.
+A small helper for reading **public BDC Schedules of Investments**: which of a few large BDCs disclose the same private borrower, with a filing URL you can open.
+
+It is meant for Cursor / Claude and for Python notebooks. Please treat every number as a citation, not as investment advice.
 
 ```text
 $ bdc-lookthrough overlap Auctane
@@ -9,15 +11,13 @@ fair value: ~$543m across 3 positions
 index: 0001628280-26-050307, 0001736035-26-000016, 0001655888-26-000056
 ```
 
-v1 ships a **dated 2026-06-30 snapshot** of Ares Capital (`ARCC`), Blackstone Secured Lending (`BXSL`), and Blue Owl Capital Corp (`OBDC`). No SEC identity required to install or query. Refresh from live EDGAR is optional.
+v1 ships a **dated 2026-06-30 snapshot** of Ares Capital (`ARCC`), Blackstone Secured Lending (`BXSL`), and Blue Owl Capital Corp (`OBDC`). You can query it without an SEC identity. Refreshing from live EDGAR is optional and should follow the SEC’s fair-access User-Agent rules.
 
-This is **not** a trading bot, not an IC memo writer, and not a 60-tool Bloomberg MCP.
+This package only answers look-through questions from those filings. It does not trade, write memos, or replace a full market-data terminal.
 
 ## Why this exists
 
-Agents invent private-credit quality. They will tell you a BDC book is clean, that a loan is unique to one lender, or that non-accrual is a Fitch default rate.
-
-Public BDCs already disclose the look-through: every portfolio company, fair value, often PIK, and (in footnotes) non-accrual. The gap is a **cited overlap graph** plus a **balance-sheet reconcile that is allowed to fail**.
+Language models often guess private-credit quality — a clean book, a unique lender, or a default rate. Public BDCs already disclose a look-through: portfolio companies, fair value, sometimes PIK, and (in footnotes) non-accrual. This project turns that disclosure into four careful tools, and it lets reconcile **fail** when the XBRL rows do not match the balance sheet.
 
 | Tool | Question it is allowed to answer |
 | --- | --- |
@@ -26,12 +26,12 @@ Public BDCs already disclose the look-through: every portfolio company, fair val
 | `nonaccrual_names` | Which names are tagged non-accrual, and by which method? |
 | `reconcile_to_bs` | Does the SOI row-sum match `InvestmentOwnedAtFairValue`? |
 
-On the bundled 2026 Q2 snapshot, `BXSL` reconciles within 3%. `ARCC` and `OBDC` do **not** — XBRL repeats rollup rows. The tool returns `reconcile_ok: false` instead of pretending the parser is NAV.
+On the bundled 2026 Q2 snapshot, `BXSL` is within 3%. `ARCC` and `OBDC` are not — the SOI extract still contains rollup rows. The tool returns `reconcile_ok: false` rather than presenting the row-sum as NAV. That is intentional.
 
 ## Install (Cursor)
 
 1. Install `uv` ([docs](https://docs.astral.sh/uv/getting-started/installation/)).
-2. Paste `examples/cursor.mcp.json` into `~/.cursor/mcp.json`.
+2. Paste `examples/cursor.mcp.json` into `~/.cursor/mcp.json` (please keep a real email out of git; the default server does not need `EDGAR_IDENTITY`).
 
 ```json
 {
@@ -48,11 +48,11 @@ On the bundled 2026 Q2 snapshot, `BXSL` reconciles within 3%. `ARCC` and `OBDC` 
 }
 ```
 
-Then ask:
+You can then ask:
 
-> Which snapshot BDCs hold Auctane? Cite accession and fair value. Search Stamps.com too — it is an f/k/a.
+> Which snapshot BDCs hold Auctane? Please cite accession and fair value. Stamps.com is an f/k/a — does that match?
 
-Copy `skills/bdc-lookthrough/SKILL.md` into `.cursor/skills/bdc-lookthrough/SKILL.md` if you want the agent forbidden from web-searching BDC credit quality.
+Optional: copy `skills/bdc-lookthrough/SKILL.md` into `.cursor/skills/bdc-lookthrough/SKILL.md` so the agent prefers these tools over a web search for BDC credit quality.
 
 Claude Desktop: `examples/claude.mcp.json`.
 
@@ -82,6 +82,13 @@ python -m venv .venv
 .venv/bin/bdc-lookthrough reconcile ARCC
 ```
 
+Offline checks (no SEC traffic):
+
+```bash
+python tests/run_offline.py
+python scripts/pressure.py
+```
+
 ## Data contract
 
 Every position carries:
@@ -99,17 +106,17 @@ Reconcile payload:
 
 `data_mode` is `bundled_snapshot` until you point `BDC_LOOKTHROUGH_SNAPSHOT` at a refresh.
 
-## Footguns
+## Limitations (please read)
 
-- **Name ≠ CUSIP.** `Guidehouse, Inc.` and `Guidehouse Inc.` match. `Romulus Intermediate Holdings 1 Inc. (dba PetVet Care Centers)` matches a PetVet query. Unrelated companies that share a short token can collide.
-- **Non-accrual ≠ default.** PIK and amend-and-extend can still be accrual. `extraction_method=none` is a parse gap.
-- **SOI sum ≠ NAV.** If `reconcile_ok` is false, do not treat the row-sum as the investment line.
-- **v1 universe is three tickers.** Absence from ARCC/BXSL/OBDC is not absence from private credit.
-- **Snapshot is dated.** The bundled file is the 10-Qs for the period ended 2026-06-30. It will go stale.
+- **Name matching is not a CUSIP.** `Guidehouse, Inc.` and `Guidehouse Inc.` match. A d/b/a such as PetVet can match too. Bare words like `group` or `software` are ignored so they do not sweep the whole book. Collisions can still happen on distinctive short names.
+- **Non-accrual is not a default rate.** PIK and amend-and-extend can still be accrual. `extraction_method=none` means the extractor did not find a signal.
+- **SOI sum is not NAV.** If `reconcile_ok` is false, please do not treat the row-sum as the investment line.
+- **v1 covers three tickers.** Absence from ARCC / BXSL / OBDC is not absence from private credit.
+- **The snapshot is dated.** The bundled file is the 10-Qs for the period ended 2026-06-30.
 
 ## Live refresh (optional)
 
-Needs `EDGAR_IDENTITY` (SEC fair-access User-Agent) and extra deps:
+Please set `EDGAR_IDENTITY` to a name and a real email ([SEC FAQ](https://www.sec.gov/os/webmaster-faq#code-support)), then:
 
 ```bash
 export EDGAR_IDENTITY="Your Name you@example.com"
@@ -118,7 +125,7 @@ bdc-lookthrough refresh --out snapshot.json.gz
 export BDC_LOOKTHROUGH_SNAPSHOT=$PWD/snapshot.json.gz
 ```
 
-Filing data is from the SEC EDGAR system. This project is not affiliated with the SEC, Ares, Blackstone, or Blue Owl.
+Filing data is from the SEC EDGAR system. This project is not affiliated with the SEC, Ares, Blackstone, or Blue Owl. Parsing uses [edgartools](https://github.com/dgunning/edgartools); errors in the extract are ours to report, not theirs.
 
 ## License
 
