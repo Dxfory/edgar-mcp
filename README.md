@@ -93,24 +93,26 @@ python -m pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 | `get_bdc_nonaccrual` | BDC non-accrual rate, fair value, named investments, and extraction method |
 | `get_form4` | Newest Form 4 summaries, transaction lines, `open_market`, and `code_counts` |
 
-`form` on `get_trading_symbols`, `get_segment_revenue`, and `get_bdc_nonaccrual` is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` only accepts SEC BDCs (814- filers) such as `ARCC`.
+`form` on `get_trading_symbols`, `get_segment_revenue`, and `get_bdc_nonaccrual` is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` accepts SEC BDCs (814- filers) such as `ARCC`.
 
 ## Theme coverage
 
-| Theme | Agent invents | Tool | Stop |
-| --- | --- | --- | --- |
-| AI infrastructure | NVIDIA / hyperscaler “AI mix” | `get_segment_revenue` on `NVDA` (Data Center is tagged). AMZN/MSFT capex is **not** AI-only | Do not add a fake AI-capex tool |
-| Private credit / BDC | Non-accrual, NAV as credit quality, PIK as current | `get_bdc_nonaccrual` | Non-accrual ≠ Fitch default rate; PIK can still be accrual |
-| GP-led continuation vehicles | Deal price and “premium to par” | None | Private secondaries are not EDGAR |
-| China PE / 具身智能 | Round sizes and factory hours | None | SSE/HKEX, not EDGAR |
+Four tools: trading symbols, segment revenue, BDC non-accrual, Form 4. Each figure carries accession, concept, period, and an EDGAR URL. NVDA segment revenue resolves through `get_segment_revenue`. BDC credit work resolves through `get_bdc_nonaccrual`. The server speaks stdio.
+
+| Theme | Filing figure | Tool |
+| --- | --- | --- |
+| Listed symbols | Every `dei:TradingSymbol` on the latest 10-K or 10-Q | `get_trading_symbols` |
+| AI infrastructure | NVDA Data Center segment revenue, tagged on the filing | `get_segment_revenue` on `NVDA` |
+| Private credit / BDC | Non-accrual rate, fair value, named investments, extraction method | `get_bdc_nonaccrual` |
+| Insider filings | Newest Form 4 summaries, transaction lines, `open_market`, and `code_counts` | `get_form4` |
 
 ## Footguns the tools already warn about
 
 - `entity_info.ticker` is last-wins on repeated `TradingSymbol` facts. Dual-class and preferred tickers can replace the common symbol.
-- Segment mix is **not** in `get_financials()`. Some statement “DETAILED” views drop reportable-segment lines; this server queries dimensioned facts instead.
+- Segment mix comes from dimensioned facts on this server. Statement “DETAILED” views can drop reportable-segment lines; `get_financials()` is a separate surface.
 - Form 4 `A` / `M` / `F` are grants, option exercises, and tax withholding — `open_market` is false.
 - BDC `extraction_method=none` or a zero rate plus extractor warnings marks a parse gap — read the Schedule of Investments in the filing for that BDC.
-- Latest `10-K` can be a `10-K/A`. The tools prefer the original form so Schedule-of-Investments footnotes are not dropped.
+- Latest `10-K` can be a `10-K/A`. The tools prefer the original form so Schedule-of-Investments footnotes stay in the extract.
 
 ## Run without Cursor
 
@@ -118,7 +120,7 @@ python -m pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 python -m edgar_mcp
 ```
 
-stdio only. Do not print to stdout.
+The server speaks stdio. Keep logs off stdout so the MCP stream stays the tool protocol.
 
 ```bash
 python tests/run_offline.py
@@ -126,7 +128,7 @@ python scripts/smoke_stdio.py
 python scripts/pressure.py
 ```
 
-`smoke_stdio.py` only checks initialize + four tool names (no EDGAR). After `uvx` is on PATH:
+`smoke_stdio.py` checks initialize plus the four tool names. Live EDGAR calls belong to `pressure.py`. After `uvx` is on PATH:
 
 ```bash
 python scripts/smoke_stdio.py -- uvx edgar-filings-mcp
