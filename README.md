@@ -2,16 +2,17 @@
 
 <!-- mcp-name: io.github.Dxfory/edgar-mcp -->
 
-[![PyPI](https://img.shields.io/pypi/v/edgar-filings-mcp)](https://pypi.org/project/edgar-filings-mcp/)
+[![PyPI](https://img.shields.io/pypi/v/edgar-filings-mcp)](https://pypi.org/project/edgar-filings-mcp/1.1.3/)
 [![MCP](https://img.shields.io/badge/MCP-io.github.Dxfory%2Fedgar--mcp-555)](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Dxfory/edgar-mcp)
+[![test](https://github.com/Dxfory/edgar-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/Dxfory/edgar-mcp/actions/workflows/test.yml)
 
-Cursor / Claude tools that return **SEC filing numbers**, not web-search guesses.
+Cursor / Claude tools that return **SEC filing numbers** with accession, concept, period and EDGAR URL.
 
 **Who this is for:** people already in an IDE chat who need a ticker’s 10-K/10-Q symbols, segment revenue, BDC non-accrual, or Form 4 lines without writing edgartools glue.
 
 **Pain it solves:** models invent segment mix, insider trades, and BDC credit quality. These tools return accession, concept, period, `open_market`, non-accrual method, and the EDGAR index URL so you can check the filing.
 
-**What it is not:** a research product, a document reader, or a substitute for reading the 10-K. It wraps [edgartools](https://github.com/dgunning/edgartools) for four jobs only. China PE, humanoid robots, and unlisted credit CVs are out of scope — those filings are not on EDGAR.
+**Scope:** four focused jobs on top of [edgartools](https://github.com/dgunning/edgartools) — symbols, segment revenue, BDC non-accrual, Form 4 — each returning accession, concept, period and the EDGAR index URL so every number is checkable.
 
 ## Install
 
@@ -92,9 +93,9 @@ python -m pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 | `get_bdc_nonaccrual` | BDC non-accrual rate, fair value, named investments, and extraction method |
 | `get_form4` | Newest Form 4 summaries, transaction lines, `open_market`, and `code_counts` |
 
-`form` on `get_trading_symbols`, `get_segment_revenue`, and `get_bdc_nonaccrual` is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` only accepts SEC BDCs (814- filers) such as `ARCC`. There is no fifth tool.
+`form` on `get_trading_symbols`, `get_segment_revenue`, and `get_bdc_nonaccrual` is `10-K` (default) or `10-Q`. `get_bdc_nonaccrual` only accepts SEC BDCs (814- filers) such as `ARCC`.
 
-## Hot-theme footguns this server will / will not answer
+## Theme coverage
 
 | Theme | Agent invents | Tool | Stop |
 | --- | --- | --- | --- |
@@ -108,7 +109,7 @@ python -m pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 - `entity_info.ticker` is last-wins on repeated `TradingSymbol` facts. Dual-class and preferred tickers can replace the common symbol.
 - Segment mix is **not** in `get_financials()`. Some statement “DETAILED” views drop reportable-segment lines; this server queries dimensioned facts instead.
 - Form 4 `A` / `M` / `F` are grants, option exercises, and tax withholding — `open_market` is false.
-- BDC `extraction_method=none` or a zero rate plus extractor warnings is a parse gap, not proof the book is clean.
+- BDC `extraction_method=none` or a zero rate plus extractor warnings marks a parse gap — read the Schedule of Investments in the filing for that BDC.
 - Latest `10-K` can be a `10-K/A`. The tools prefer the original form so Schedule-of-Investments footnotes are not dropped.
 
 ## Run without Cursor
