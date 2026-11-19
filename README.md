@@ -6,7 +6,7 @@
 [![MCP](https://img.shields.io/badge/MCP-io.github.Dxfory%2Fedgar--mcp-555)](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Dxfory/edgar-mcp)
 [![test](https://github.com/Dxfory/edgar-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/Dxfory/edgar-mcp/actions/workflows/test.yml)
 
-Cursor / Claude tools that return **SEC filing numbers** with accession, concept, period and EDGAR URL.
+An open-source MCP server that returns **SEC filing numbers** with accession, concept, period and EDGAR URL.
 
 **Who this is for:** people already in an IDE chat who need a ticker’s 10-K/10-Q symbols, segment revenue, BDC non-accrual, or Form 4 lines without writing edgartools glue.
 
